@@ -1,6 +1,7 @@
 import commands/commands
 import error
 import gleam/bytes_tree
+import gleam/dict
 import gleam/erlang/process
 import gleam/io
 import gleam/option
@@ -11,9 +12,21 @@ import glisten
 import resp/data
 import resp/encode
 import resp/parse
+import store/store
 
 pub fn main() -> Nil {
   io.println("💫 Running Redis TCP server....")
+
+  let store = dict.new()
+
+  // We need to maintain some state (the store in our case) across connections.
+  // And this function provides that state to each connection handler.
+  let on_connection_init = fn(_connection: glisten.Connection(message)) -> #(
+    store.Store,
+    option.Option(process.Selector(message)),
+  ) {
+    #(store, option.None)
+  }
 
   let assert Ok(_) =
     // Provides a supervisor over a pool of socket acceptors (default size = 10).
@@ -25,41 +38,39 @@ pub fn main() -> Nil {
   process.sleep_forever()
 }
 
-fn on_connection_init(
-  _connection: glisten.Connection(message),
-) -> #(Nil, option.Option(process.Selector(message))) {
-  #(Nil, option.None)
-}
-
 fn handle_connection_message(
   message: glisten.Message(message),
-  state,
+  store: store.Store,
   connection: glisten.Connection(message),
-) -> actor.Next(glisten.Message(message), data) {
+) -> actor.Next(glisten.Message(message), store.Store) {
   let assert glisten.Packet(packet) = message
 
-  let assert Ok(_) = case handle_packet(packet) {
-    Ok(response) ->
-      glisten.send(connection, bytes_tree.from_bit_array(response))
+  let #(response, store) = case handle_packet(packet, store) {
+    Ok(#(response, store)) -> #(bytes_tree.from_bit_array(response), store)
 
     Error(error) -> {
-      let response = string.append("ERROR : ", error.to_error_message(error))
-      glisten.send(connection, bytes_tree.from_string(response))
+      let response = error.encode(error) <> "\r\n"
+      #(bytes_tree.from_string(response), store)
     }
   }
 
-  actor.continue(state)
+  let assert Ok(_) = glisten.send(connection, response)
+
+  actor.continue(store)
 }
 
-// Clients send commands to a Redis server as an array of bulk strings. The first (and sometimes
-// also the second) bulk string in the array is the command's name. Subsequent elements of the
-// array are the arguments for the command.
-//
-// NOTE : For now, we assume that the complete command comes in a single TCP packet.
-//
-// The server replies with a RESP type. The reply's type is determined by the command's
-// implementation and possibly by the client's protocol version.
-fn handle_packet(packet: BitArray) -> Result(BitArray, error.RedisError) {
+/// Clients send commands to a Redis server as an array of bulk strings. The first (and sometimes
+/// also the second) bulk string in the array is the command's name. Subsequent elements of the
+/// array are the arguments for the command.
+///
+/// NOTE : For now, we assume that the complete command comes in a single TCP packet.
+///
+/// The server replies with a RESP type. The reply's type is determined by the command's
+/// implementation and possibly by the client's protocol version.
+fn handle_packet(
+  packet: BitArray,
+  store: store.Store,
+) -> Result(#(BitArray, store.Store), error.RedisError) {
   use parse_output <- result.try(
     parse.parse(packet)
     |> result.map_error(fn(error) { error.ParseError(error) }),
@@ -72,10 +83,12 @@ fn handle_packet(packet: BitArray) -> Result(BitArray, error.RedisError) {
     _ -> Error(error.InvalidRequestFormat)
   })
 
-  use response <- result.try(
-    commands.handle(command, arguments)
+  use #(response, store) <- result.try(
+    commands.handle(command, arguments, store)
     |> result.map_error(fn(error) { error.CommandExecutionError(error) }),
   )
 
-  Ok(encode.encode(response))
+  let response = encode.encode(response)
+
+  Ok(#(response, store))
 }

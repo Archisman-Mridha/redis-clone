@@ -28,13 +28,13 @@ pub fn parse(bits: BitArray) -> Result(ParseOutput, ParseError) {
   }
 }
 
-// Simple strings are encoded as a plus (+) character, followed by a string. The string mustn't
-// contain a CR (\r) or LF (\n) character and is terminated by CRLF(\r\n).
-//
-// For example, many Redis commands reply with just "OK" on success. The encoding of this Simple
-// String is the following 5 bytes :
-//
-//  +OK\r\n
+/// Simple strings are encoded as a plus (+) character, followed by a string. The string mustn't
+/// contain a CR (\r) or LF (\n) character and is terminated by CRLF(\r\n).
+///
+/// For example, many Redis commands reply with just "OK" on success. The encoding of this Simple
+/// String is the following 5 bytes :
+///
+///  +OK\r\n
 fn parse_simple_string(input: BitArray) -> Result(ParseOutput, ParseError) {
   use #(string_as_bits, remaining_input) <- result.try(
     consume_till_crlf(input, <<>>),
@@ -48,10 +48,10 @@ fn parse_simple_string(input: BitArray) -> Result(ParseOutput, ParseError) {
   Ok(ParseOutput(data.SimpleString(string), remaining_input))
 }
 
-// A bulk string represents a single binary string.
-// RESP encodes bulk strings in the following way :
-//
-//    $<length>\r\n<data>\r\n
+/// A bulk string represents a single binary string.
+/// RESP encodes bulk strings in the following way :
+///
+///    $<length>\r\n<data>\r\n
 fn parse_bulk_string(input: BitArray) -> Result(ParseOutput, ParseError) {
   use #(binary_string_length, remaining_input) <- result.try(parse_length(input))
 
@@ -74,11 +74,11 @@ fn parse_bulk_string(input: BitArray) -> Result(ParseOutput, ParseError) {
   }
 }
 
-// RESP Arrays' encoding uses the following format:
-//
-//  *<number-of-elements>\r\n<element-1>...<element-n>
-//
-// All of the aggregate RESP types support nesting.
+/// RESP Arrays' encoding uses the following format:
+///
+///  *<number-of-elements>\r\n<element-1>...<element-n>
+///
+/// All of the aggregate RESP types support nesting.
 fn parse_array(input: BitArray) -> Result(ParseOutput, ParseError) {
   use #(array_length, remaining_input) <- result.try(parse_length(input))
 
@@ -106,11 +106,11 @@ fn parse_array_elements(
   }
 }
 
-// The null data type represents non-existent values.
-// Nulls' encoding is the underscore (_) character, followed by the CRLF terminator (\r\n). Here's
-// Null's raw RESP encoding:
-//
-//  _\r\n
+/// The null data type represents non-existent values.
+/// Nulls' encoding is the underscore (_) character, followed by the CRLF terminator (\r\n). Here's
+/// Null's raw RESP encoding:
+///
+///  _\r\n
 fn parse_null(input: BitArray) -> Result(ParseOutput, ParseError) {
   case input {
     <<"\r\n":utf8, remaining_input:bits>> ->

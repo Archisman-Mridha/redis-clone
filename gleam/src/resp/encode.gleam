@@ -3,7 +3,7 @@ import gleam/list
 import gleam/string
 import resp/data
 
-// Returns a buffer containing encoding of the given RESP data.
+/// Returns a buffer containing encoding of the given RESP data.
 pub fn encode(data: data.Data) -> BitArray {
   encode_into_buffer(<<>>, data)
 }
