@@ -1,4 +1,6 @@
 import gleam/dict
+import gleam/option
+import gleam/time/timestamp
 
 pub type Store =
   dict.Dict(String, Value)
@@ -9,7 +11,7 @@ pub type Value {
   ///
   /// Values can be strings (including binary data) of every kind, for instance you can store a
   /// jpeg image inside a value. A value can't be bigger than 512 MB.
-  String(string: String)
+  String(value: String, expires_at: option.Option(timestamp.Timestamp))
 
   /// A Redis sorted set is a collection of unique strings (members) ordered by an associated
   /// score. When more than one string has the same score, the strings are ordered

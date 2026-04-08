@@ -1,10 +1,22 @@
-import commands/commands
-import resp/parse
-
 pub type RedisError {
-  ParseError(parse.ParseError)
+  ParseError(ParseError)
   InvalidRequestFormat
-  CommandExecutionError(commands.HandleError)
+  CommandExecutionError(CommandExecutionError)
+}
+
+pub type ParseError {
+  InvalidUTF8Character
+  FailedParsingLength
+  UnexpectedInput
+  UnexpectedEndOfInput
+}
+
+pub type CommandExecutionError {
+  UnknownCommand
+  WrongArguments
+  UnknownOption
+  WrongOperationType
+  KeyNotFound
 }
 
 /// Returns RedisError encoded as a simple error.
@@ -33,24 +45,24 @@ pub type RedisError {
 pub fn encode(error: RedisError) -> String {
   "-"
   <> case error {
+    InvalidRequestFormat -> "InvalidRequestFormat Invalid request format"
+
     ParseError(error) ->
       case error {
-        parse.UnexpectedEndOfInput ->
-          "UnexpectedEndOfInput Unexpected end of input"
-        parse.InvalidUTF8Character ->
+        UnexpectedEndOfInput -> "UnexpectedEndOfInput Unexpected end of input"
+        InvalidUTF8Character ->
           "InvalidUTF8Character Found invalid UTF8 character"
-        parse.FailedParsingLength -> "FailedParsingLength Failed parsing length"
-        parse.UnexpectedInput -> "UnexpectedInput Unexpected input"
+        FailedParsingLength -> "FailedParsingLength Failed parsing length"
+        UnexpectedInput -> "UnexpectedInput Unexpected input"
       }
-
-    InvalidRequestFormat -> "InvalidRequestFormat Invalid request format"
 
     CommandExecutionError(error) ->
       case error {
-        commands.UnknownCommand -> "UnknownCommand Unknown command"
-        commands.WrongArguments -> "WrongArguments Wrong arguments"
-        commands.WrongOperationType -> "WrongOperationType Wrong operation type"
-        commands.KeyNotFound -> "KeyNotFound Key not found"
+        UnknownCommand -> "UnknownCommand Unknown command"
+        WrongArguments -> "WrongArguments Wrong arguments"
+        UnknownOption -> "UnknownOption unknown option"
+        WrongOperationType -> "WrongOperationType Wrong operation type"
+        KeyNotFound -> "KeyNotFound Key not found"
       }
   }
   <> "\r\n"

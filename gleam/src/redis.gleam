@@ -1,13 +1,12 @@
-import commands/commands
+import command/command
 import error
 import gleam/bytes_tree
 import gleam/dict
 import gleam/erlang/process
 import gleam/io
+import gleam/list
 import gleam/option
-import gleam/otp/actor
 import gleam/result
-import gleam/string
 import glisten
 import resp/data
 import resp/encode
@@ -32,31 +31,31 @@ pub fn main() -> Nil {
     // Provides a supervisor over a pool of socket acceptors (default size = 10).
     // Each acceptor will block on accept until a connection is opened. The acceptor will then
     // spawn a handler process and then block again on accept.
-    glisten.handler(on_connection_init, handle_connection_message)
-    |> glisten.serve(6379)
+    glisten.new(on_connection_init, handle_connection_message)
+    |> glisten.start(6379)
 
   process.sleep_forever()
 }
 
 fn handle_connection_message(
-  message: glisten.Message(message),
   store: store.Store,
+  message: glisten.Message(message),
   connection: glisten.Connection(message),
-) -> actor.Next(glisten.Message(message), store.Store) {
+) -> glisten.Next(store.Store, glisten.Message(message)) {
   let assert glisten.Packet(packet) = message
 
   let #(response, store) = case handle_packet(packet, store) {
     Ok(#(response, store)) -> #(bytes_tree.from_bit_array(response), store)
 
-    Error(error) -> {
-      let response = error.encode(error) <> "\r\n"
+    Error(e) -> {
+      let response = error.encode(e) <> "\r\n"
       #(bytes_tree.from_string(response), store)
     }
   }
 
   let assert Ok(_) = glisten.send(connection, response)
 
-  actor.continue(store)
+  glisten.continue(store)
 }
 
 /// Clients send commands to a Redis server as an array of bulk strings. The first (and sometimes
@@ -71,21 +70,36 @@ fn handle_packet(
   packet: BitArray,
   store: store.Store,
 ) -> Result(#(BitArray, store.Store), error.RedisError) {
-  use parse_output <- result.try(
+  use request <- result.try(
     parse.parse(packet)
-    |> result.map_error(fn(error) { error.ParseError(error) }),
+    |> result.map_error(fn(e) { error.ParseError(e) }),
   )
 
-  use #(command, arguments) <- result.try(case parse_output {
-    parse.ParseOutput(data.Array([data.BulkString(command), ..arguments]), <<>>) ->
-      Ok(#(string.uppercase(command), arguments))
+  use elements <- result.try(case request {
+    parse.ParseOutput(data.Array(elements), <<>>) -> Ok(elements)
+    _ -> Error(error.InvalidRequestFormat)
+  })
 
+  use elements <- result.try(
+    elements
+    |> list.fold_right(Ok([]), fn(accumulation, element) {
+      case accumulation, element {
+        Ok(accumulation), data.BulkString(element) ->
+          Ok([element, ..accumulation])
+
+        _, _ -> Error(error.InvalidRequestFormat)
+      }
+    }),
+  )
+
+  use #(command, arguments) <- result.try(case elements {
+    [command, ..arguments] -> Ok(#(command, arguments))
     _ -> Error(error.InvalidRequestFormat)
   })
 
   use #(response, store) <- result.try(
-    commands.handle(command, arguments, store)
-    |> result.map_error(fn(error) { error.CommandExecutionError(error) }),
+    command.handle(command, arguments, store)
+    |> result.map_error(fn(e) { error.CommandExecutionError(e) }),
   )
 
   let response = encode.encode(response)

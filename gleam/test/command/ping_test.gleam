@@ -1,4 +1,4 @@
-import commands/commands
+import command/command
 import gleam/dict
 import gleeunit/should
 import resp/data
@@ -6,15 +6,18 @@ import resp/data
 pub fn handle_ping_command_test() {
   let store = dict.new()
 
-  commands.handle("PING", [], store)
+  command.handle("PING", [], store)
   |> should.equal(Ok(#(data.SimpleString("PONG"), store)))
 }
 
 pub fn handle_ping_command_with_argument_test() {
   let store = dict.new()
 
-  let argument = data.BulkString("HELLO")
+  let argument = "HELLO"
 
-  commands.handle("PING", [argument], store)
-  |> should.equal(Ok(#(argument, store)))
+  let expected_response = #(data.BulkString(argument), store)
+
+  command.handle("PING", [argument], store)
+  |> should.be_ok()
+  |> should.equal(expected_response)
 }
