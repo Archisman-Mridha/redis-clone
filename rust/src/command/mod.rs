@@ -31,7 +31,7 @@ impl<'command> Command<'command> {
   ) -> Self {
     Self {
       command,
-      arguments: arguments.into_iter(),
+      arguments: arguments.iter(),
 
       store
     }
