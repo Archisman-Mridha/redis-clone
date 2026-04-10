@@ -49,11 +49,11 @@ pub fn encode(error: RedisError) -> String {
 
     ParseError(error) ->
       case error {
-        UnexpectedEndOfInput -> "UnexpectedEndOfInput Unexpected end of input"
         InvalidUTF8Character ->
           "InvalidUTF8Character Found invalid UTF8 character"
         FailedParsingLength -> "FailedParsingLength Failed parsing length"
         UnexpectedInput -> "UnexpectedInput Unexpected input"
+        UnexpectedEndOfInput -> "UnexpectedEndOfInput Unexpected end of input"
       }
 
     CommandExecutionError(error) ->

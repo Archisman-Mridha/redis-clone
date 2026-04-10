@@ -7,7 +7,7 @@ import resp/data
 import store/store
 
 pub fn handle(
-  command: String,
+  command: data.BulkString,
   arguments: List(data.BulkString),
   store: store.Store,
 ) -> Result(#(data.Data, store.Store), error.CommandExecutionError) {
