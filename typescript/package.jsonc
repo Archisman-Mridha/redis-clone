@@ -1,0 +1,18 @@
+{
+  "scripts": {
+    /*
+      While LSPs only activate during editing sessions, you may want to catch diagnostics during
+      your build process.
+
+      Usually that’s done through linting rules, but since almost all of the Effect diagnostics
+      relies on types, that would mean enabling type-aware linting, which means performing type
+      checking again on the project files.
+
+      To solve this, the Effect Language Service allows you to patch your local TypeScript
+      installation, so diagnostics are emitted while performing type checking.
+
+      To enable it run the following command to modify your local TypeScript installation:"
+    */
+    "prepare": "effect-language-service patch"
+  }
+}

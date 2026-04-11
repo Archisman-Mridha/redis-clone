@@ -1,14 +1,13 @@
 package command
 
 import store.Store
-import java.util.concurrent.atomic.AtomicReference
 import resp.Data
 import error.CommandExecutionError
 
 class Command(
   val command: Data.BulkString,
   val arguments: scala.Iterator[Data.BulkString],
-  val store: AtomicReference[Store]
+  val store: Store
 ):
   def handle(): Either[CommandExecutionError, Data] = {
     command.string match
